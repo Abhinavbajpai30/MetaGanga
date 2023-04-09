@@ -1,0 +1,21 @@
+min-players: 40
+max-players: 50
+points-per-level: 550
+dummy-world: "dummy"
+spawnLocation:
+  world: "world"
+  x: 138.5
+  y: 74.0
+  z: 42.5
+  yaw: 0.0
+  pitch: 0.0
+level1:
+  world: "world"
+level2:
+  world: "world_2"
+level3:
+  world: "world_3"
+level4:
+  world: "world_4"
+level5:
+  world: "world_5"
