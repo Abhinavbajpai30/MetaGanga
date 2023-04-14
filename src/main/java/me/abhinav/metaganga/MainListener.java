@@ -105,7 +105,7 @@ public class MainListener implements Listener {
             main.players.add(p);
             main.bossBar.addPlayer(p);
             main.readyPlayer(p);
-            p.sendTitle(ChatColor.GREEN + "The Doors have been opened!", ChatColor.AQUA + "Move forward and help us in making the Ganga blue Again!");
+            p.sendTitle(ChatColor.GREEN + "The Doors have been opened!", ChatColor.AQUA + "Move forward and help us in making the Ganga Clear Again!");
             p.playSound(p, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
         }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game start");
@@ -163,21 +163,22 @@ public class MainListener implements Listener {
                 notification = new ToastNotification(new ItemStack(Material.TROPICAL_FISH), new TextComponent(ChatColor.GOLD + "Good news! Fish and birds have returned to the river!").toLegacyText(), AdvancementDisplay.AdvancementFrame.TASK);
                 break;
             case 4:
-                title = ChatColor.GREEN + "You received " + ChatColor.RED + "Scuba Gear" + ChatColor.GREEN + " as your reward!";
+                title = ChatColor.GREEN + "You received " + ChatColor.RED + "Turtle Shell" + ChatColor.GREEN + " as your reward!";
                 subtitle = ChatColor.AQUA + "Thank you for your contribution!";
-                message = ChatColor.GREEN + "You received " + ChatColor.RED + "Scuba Gear" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
+                message = ChatColor.GREEN + "You received " + ChatColor.RED + "Turtle Shell" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
                 helmet = new ItemStack(Material.TURTLE_HELMET);
 
                 notification = new ToastNotification(new ItemStack(Material.SCUTE), new TextComponent(ChatColor.GREEN + "Turtles have been spotted basking in the sun on the riverbanks!").toLegacyText(), AdvancementDisplay.AdvancementFrame.TASK);
                 break;
             case 5:
-                title = ChatColor.GREEN + "You received " + ChatColor.RED + "Trident" + ChatColor.GREEN + " as your reward!";
+                title = ChatColor.GREEN + "You received " + ChatColor.RED + "Spear" + ChatColor.GREEN + " as your reward!";
                 subtitle = ChatColor.AQUA + "Thank you for your contribution!";
-                message = ChatColor.GREEN + "You received " + ChatColor.RED + "Trident" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
+                message = ChatColor.GREEN + "You received " + ChatColor.RED + "Spear" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
                 ItemStack trident = new ItemStack(Material.TRIDENT);
                 ItemMeta tridentMeta = trident.getItemMeta();
                 tridentMeta.addEnchant(Enchantment.RIPTIDE, 2, true);
                 tridentMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                tridentMeta.setDisplayName("Spear");
                 trident.setItemMeta(tridentMeta);
                 items.add(trident);
                 helmet = new ItemStack(Material.TURTLE_HELMET);
@@ -236,9 +237,9 @@ public class MainListener implements Listener {
         checkLeftPlayers();
         Bukkit.getConsoleSender().sendMessage(ChatColor.AQUA + "Loading Celebrate Plugin!");
         //Bukkit.getPluginManager().enablePlugin(main.celebratePlugin);
-        String title = ChatColor.AQUA + "" + ChatColor.BOLD + "The Water is now fully cleaned!";
-        String subtitle = ChatColor.GREEN + "Your Final Score is %trashpoints_points%";
-        String message = ChatColor.GREEN + "Thank you for your contribution in cleaning the water. Your Final Score is %trashpoints_points%";
+        String title = ChatColor.AQUA + "" + ChatColor.BOLD + "Thank you for your contribution";
+        String subtitle = ChatColor.GREEN + "in cleaning the river. Please proceed to wash your hands.";
+        String message = ChatColor.GREEN + "Thank you for your contribution in cleaning the water!";
         main.bossBar.setTitle(ChatColor.AQUA + "Congratulations! You have successfully finished the task.");
         main.bossBar.setProgress(1);
         for(Player p: Bukkit.getOnlinePlayers()) {
@@ -253,30 +254,13 @@ public class MainListener implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld(main.getConfig().getString("level5.world"));
-                new BukkitRunnable(){
-                    @Override
-                    public void run() {
-                        if(world.getTime()>=18000) {
-                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "celebrate start 15");
-                            cancel();
-                            return;
-                        }
-                        world.setTime((world.getTime()+100));
-                    }
-                }.runTaskTimer(main, 0, 1L);
-                new BukkitRunnable(){
-                    @Override
-                    public void run() {
-                        main.isEnding = true;
-                        world.setTime(6000);
-                        setupEndingBossbar();
-                        for(Player player: Bukkit.getOnlinePlayers()) {
-                            main.readyPlayer(player);
-                            player.sendMessage(ChatColor.AQUA + "Please wash your ends at any nearby washing station to save your score!");
-                            player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
-                        }
-                    }
-                }.runTaskLater(main, 480L);
+                main.isEnding = true;
+                setupEndingBossbar();
+                for(Player player: Bukkit.getOnlinePlayers()) {
+                    main.readyPlayer(player);
+                    player.sendMessage(ChatColor.AQUA + "Please wash your ends at any nearby washing station to save your score!");
+                    player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
+                }
             }
         }.runTaskLater(main, 100L);
     }
@@ -537,8 +521,6 @@ public class MainListener implements Listener {
                 @Override
                 public void run() {
                     CustomPlayer.stopEmote(player);
-                    main.animationPlayers.remove(player);
-                    main.animationInUse.remove(e.getClickedBlock().getLocation());
                     player.sendMessage(ChatColor.AQUA + "You have washed and sanitized your hands with Lifebuoy!");
                     player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
                     e.getClickedBlock().setType(Material.FLETCHING_TABLE);
@@ -546,10 +528,14 @@ public class MainListener implements Listener {
                         new BukkitRunnable(){
                             @Override
                             public void run() {
+                                main.animationPlayers.remove(player);
+                                main.animationInUse.remove(e.getClickedBlock().getLocation());
                                 finishPlayer(player);
                             }
                         }.runTaskLater(main, 40L);
-                        finishPlayer(player);
+                    } else {
+                        main.animationPlayers.remove(player);
+                        main.animationInUse.remove(e.getClickedBlock().getLocation());
                     }
                 }
             }.runTaskLater(main, 100L);
@@ -561,7 +547,26 @@ public class MainListener implements Listener {
     }
 
     void finishPlayer(Player player) {
-        player.kickPlayer(ChatColor.RED + "" + ChatColor.BOLD + "Thank you for being part of Meta Ganga!");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "iaplaytotemanimation animatedtitles:lifeboy " + player.getName());
+        player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        String kickmsg = "";
+        kickmsg+=ChatColor.GREEN + "Congrats on %trashpoints_points% points!\n";
+        kickmsg+="\n";
+        kickmsg+="They will help us build %math_{trashpoints_points}/55% Lifebuoy\n";
+        kickmsg+="Handwash stations in schools\n";
+        kickmsg+="to protect kids from illness-causing germs\n";
+        kickmsg+="\n";
+        kickmsg+="Here's a thank you\n";
+        kickmsg+="from both, the kids,\n";
+        kickmsg+="and river Ganga.\n";
+
+        String finalKickmsg = PlaceholderAPI.setPlaceholders(player, kickmsg);;
+        new BukkitRunnable(){
+            @Override
+            public void run() {
+                player.kickPlayer(finalKickmsg);
+            }
+        }.runTaskLater(main, 60L);
     }
 
     @EventHandler
