@@ -33,7 +33,7 @@ public class WorldManager {
         new BukkitRunnable(){
             @Override
             public void run() {
-                mvWorldManager.unloadWorld((main.getConfig().getString("level" + (level) + ".world")));
+                //mvWorldManager.unloadWorld((main.getConfig().getString("level" + (level) + ".world")));
             }
         }.runTaskLater(main, 200L);
     }

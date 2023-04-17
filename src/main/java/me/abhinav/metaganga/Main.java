@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 public final class Main extends JavaPlugin {
     private static Main main;
@@ -23,6 +24,7 @@ public final class Main extends JavaPlugin {
     public boolean isStarting;
     public boolean isLevelChanging;
     public boolean isEnding;
+    public boolean isSettingUp;
     public int level;
     public int totalPoints;
     public ArrayList<Player> players;
@@ -32,6 +34,8 @@ public final class Main extends JavaPlugin {
     public BossBar bossBar;
     public WorldManager worldManager;
     public Plugin celebratePlugin;
+    public ArrayList<Region> regions;
+    public Utils utils;
 
     @Override
     public void onEnable() {
@@ -43,6 +47,8 @@ public final class Main extends JavaPlugin {
         animationPlayers = new ArrayList<>();
         animationInUse = new ArrayList<>();
         alreadyWashed = new ArrayList<>();
+
+        isSettingUp=true;
 
         Bukkit.getPluginManager().registerEvents(mainListener, this);
         Bukkit.getPluginCommand("setminplayers").setExecutor(new SetMinPlayers());
@@ -58,9 +64,19 @@ public final class Main extends JavaPlugin {
 
         setup();
         reloadBossBar();
+        setRegions();
 
         worldManager = new WorldManager();
         checkPlayers();
+
+        utils = new Utils();
+
+        new BukkitRunnable(){
+            @Override
+            public void run() {
+                isSettingUp = false;
+            }
+        }.runTaskLater(main, 200L);
     }
 
     void setup() {
@@ -80,7 +96,7 @@ public final class Main extends JavaPlugin {
         new BukkitRunnable(){
             @Override
             public void run() {
-                Bukkit.getConsoleSender().sendMessage(ChatColor.AQUA + "Unloading Celebrate Plugin!");
+                //Bukkit.getConsoleSender().sendMessage(ChatColor.AQUA + "Unloading Celebrate Plugin!");
                 //Bukkit.getPluginManager().disablePlugin(celebratePlugin);
             }
         }.runTaskLater(main, 20L);
@@ -105,6 +121,71 @@ public final class Main extends JavaPlugin {
         player.getInventory().clear();
     }
 
+    void setRegions() {
+        regions = new ArrayList<>();
+        //0
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 288, 62, 115), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 226, 43, 290)));
+        //1
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 109, 62, 290), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 327, 40, 365)));
+        //2
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 287, 62, 69), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 133, 41, 20)));
+        //3- Near temples Region
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 180, 62, 104), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 223, 44, 288)));
+        //4 - Near temples smaller Region
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 180, 62, 104), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 223, 44, 223)));
+        //5 - Parrot Location
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 171, 67, 143), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 176, 62, 208)));
+        //6 - Parrot Location
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 210, 67, 208), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 203, 62, 128)));
+        //7 - Parrot Location
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 290, 61, 235), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 235, 85, 87)));
+        //8 - Parrot Location
+        regions.add(new Region(new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 144, 73, 128), new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), 138, 83, 204)));
+    }
+
+    void placeTrash(int level) {
+        ArrayList<String> trashList = new ArrayList<>();
+        trashList.add("bottle blue_bottle");
+        trashList.add("plastic plastic_bag");
+        trashList.add("bottle green_bottle");
+        trashList.add("plastic big_plastic_bag");
+        trashList.add("garbage garbage_bag");
+        trashList.add("garbage big_garbage_bag");
+
+        int max = 0;
+        switch(level) {
+            case 1:
+                max=400;
+                break;
+            case 2:
+                max=350;
+                break;
+            case 3:
+                max=300;
+                break;
+            case 4:
+                max=250;
+                break;
+            case 5:
+                max=200;
+                break;
+        }
+        int finalMax = max;
+        new BukkitRunnable(){
+            int i = 0;
+            @Override
+            public void run() {
+                if(i>= finalMax) {
+                    cancel();
+                    return;
+                }
+                String trash = trashList.get((new Random().nextInt(6)));
+                getUtils().placeTrashRandomly(level, trash);
+                i++;
+            }
+        }.runTaskTimer(this, 20L, 1L);
+    }
+
     void checkPlayers() {
         new BukkitRunnable(){
             @Override
@@ -114,7 +195,7 @@ public final class Main extends JavaPlugin {
                     if(p.getWorld().equals(dummyWorld)) {
                         try {
                             Location loc = new Location(Bukkit.getWorld(getConfig().getString("spawnLocation.world")), getConfig().getDouble("spawnLocation.x"), getConfig().getDouble("spawnLocation.y"), getConfig().getDouble("spawnLocation.z"), (float) getConfig().getDouble("spawnLocation.yaw"),(float) getConfig().getDouble("spawnLocation.pitch"));
-                            if (!main.isRunning) {
+                            if (!main.isRunning && !main.isFinished) {
                                 p.teleport(loc);
                             } else {
                                 World world = Bukkit.getWorld(getConfig().getString("level" + main.level + ".world"));
@@ -138,5 +219,9 @@ public final class Main extends JavaPlugin {
     public static Main getInstance()
     {
         return main;
+    }
+
+    public Utils getUtils() {
+        return utils;
     }
 }

@@ -1,6 +1,7 @@
+points-collected: 0
 min-players: 40
 max-players: 50
-points-per-level: 550
+points-per-level: 85000
 dummy-world: "dummy"
 spawnLocation:
   world: "world"

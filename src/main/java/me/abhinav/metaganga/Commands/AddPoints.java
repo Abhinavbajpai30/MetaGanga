@@ -27,8 +27,8 @@ public class AddPoints implements CommandExecutor {
         if(main.isLevelChanging) {
             return false;
         }
-        if(args.length!=1) {
-            sender.sendMessage(ChatColor.RED + "Format - /addpoints (points)");
+        if(args.length<1) {
+            sender.sendMessage(ChatColor.RED + "Format - /addpoints (points) (trash type) (trash name)");
             return false;
         }
         int points;
@@ -40,12 +40,17 @@ public class AddPoints implements CommandExecutor {
         }
         main.totalPoints+=points;
         if(main.totalPoints>=main.getConfig().getInt("points-per-level")) {
-            main.totalPoints = 550;
+            main.totalPoints = main.getConfig().getInt("points-per-level");
             main.reloadBossBar();
             main.mainListener.nextLevel();
             return true;
         }
         main.reloadBossBar();
+
+        if(args.length>=3) {
+            String trash = args[1] + " " + args[2];
+            main.getUtils().placeTrashRandomly(main.level, trash);
+        }
         return false;
     }
 }

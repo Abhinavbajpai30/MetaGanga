@@ -4,11 +4,10 @@ import dev.lone.itemsadder.api.CustomPlayer;
 import eu.endercentral.crazy_advancements.advancement.AdvancementDisplay;
 import eu.endercentral.crazy_advancements.advancement.ToastNotification;
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.kyori.adventure.platform.facet.Facet;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
-import org.bukkit.block.Block;
 import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.Player;
@@ -76,7 +75,7 @@ public class MainListener implements Listener {
                 }
             }
         }
-        if(main.isRunning) {
+        if(main.isRunning || main.isFinished) {
             Player player = e.getPlayer();
             main.bossBar.addPlayer(player);
             World dummyWorld = Bukkit.getWorld(main.getConfig().getString("dummy-world"));
@@ -88,7 +87,6 @@ public class MainListener implements Listener {
                     player.kickPlayer(ChatColor.RED + "Something went wrong!");
                 }
             }
-
         }
     }
 
@@ -96,6 +94,7 @@ public class MainListener implements Listener {
         main.isRunning = true;
         main.isStarting=false;
         main.level=1;
+        main.placeTrash(1);
         for(int i=134;i<=142;i++) {
             for(int j=74;j<=80;j++) {
                 Bukkit.getWorld(main.getConfig().getString("level1.world")).getBlockAt(i, j, 91).setType(Material.AIR);
@@ -105,14 +104,17 @@ public class MainListener implements Listener {
             main.players.add(p);
             main.bossBar.addPlayer(p);
             main.readyPlayer(p);
-            p.sendTitle(ChatColor.GREEN + "The Doors have been opened!", ChatColor.AQUA + "Move forward and help us in making the Ganga Clear Again!");
+            p.sendTitle(ChatColor.GREEN + "The Doors have been opened!", ChatColor.AQUA + "Move forward and help us in clearing the river.");
             p.playSound(p, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
         }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game start");
     }
 
     public void nextLevel() {
+        main.getConfig().set("points-collected", main.getConfig().getInt("points-collected") + main.getConfig().getInt("points-per-level"));
+        main.saveConfig();
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game stop");
+        main.utils.removeTrash(main.level);
         if(main.level>=5) {
             stopGame();
             return;
@@ -123,13 +125,14 @@ public class MainListener implements Listener {
                 main.worldManager.reloadWorlds();
             }
         }.runTaskLater(main, 20L);
+        main.placeTrash(main.level+1);
 
         main.isLevelChanging = true;
         for(Player p: Bukkit.getOnlinePlayers()) {
             if(p.getVehicle()!=null) {
                 p.getVehicle().eject();
             }
-            p.sendTitle(ChatColor.GREEN + "" + ChatColor.BOLD + "You have Completed Level " + main.level, ChatColor.AQUA + "Level " + (main.level+1) + " is Going to Begin Soon!");
+            p.sendTitle(ChatColor.GREEN + "" + ChatColor.BOLD + "You have completed Level " + main.level, ChatColor.AQUA + "Level " + (main.level+1) + " will begin soon!");
             p.sendMessage(ChatColor.GREEN + "You have Completed Level " + main.level + "!");
             p.playSound(p, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         }
@@ -226,6 +229,13 @@ public class MainListener implements Listener {
                 main.isLevelChanging = false;
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game start");
                 main.alreadyWashed.clear();
+                new BukkitRunnable(){
+                    @Override
+                    public void run() {
+                        main.getUtils().spawnMobs();
+                        main.getUtils().removeMobs(main.level-1);
+                    }
+                }.runTaskLater(main, 20L);
             }
         }.runTaskLater(main, 100L);
 
@@ -235,7 +245,7 @@ public class MainListener implements Listener {
         main.isFinished = true;
         main.isRunning = false;
         checkLeftPlayers();
-        Bukkit.getConsoleSender().sendMessage(ChatColor.AQUA + "Loading Celebrate Plugin!");
+        //Bukkit.getConsoleSender().sendMessage(ChatColor.AQUA + "Loading Celebrate Plugin!");
         //Bukkit.getPluginManager().enablePlugin(main.celebratePlugin);
         String title = ChatColor.AQUA + "" + ChatColor.BOLD + "Thank you for your contribution";
         String subtitle = ChatColor.GREEN + "in cleaning the river. Please proceed to wash your hands.";
@@ -248,7 +258,7 @@ public class MainListener implements Listener {
             String finalMessage = PlaceholderAPI.setPlaceholders(p, message);
             p.sendMessage(finalMessage);
             p.playSound(p, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + p.getName() + " parent add finished");
+            //Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + p.getName() + " parent add finished");
         }
         new BukkitRunnable(){
             @Override
@@ -258,7 +268,7 @@ public class MainListener implements Listener {
                 setupEndingBossbar();
                 for(Player player: Bukkit.getOnlinePlayers()) {
                     main.readyPlayer(player);
-                    player.sendMessage(ChatColor.AQUA + "Please wash your ends at any nearby washing station to save your score!");
+                    player.sendMessage(ChatColor.AQUA + "Please wash your hands at any nearby washing station to save your score!");
                     player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
                 }
             }
@@ -268,7 +278,7 @@ public class MainListener implements Listener {
     void checkLeftPlayers() {
         for(Player p: main.players) {
             if(!p.isOnline()) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "reset uuid " + p.getUniqueId());
+                //Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "reset uuid " + p.getUniqueId());
             }
         }
     }
@@ -276,7 +286,7 @@ public class MainListener implements Listener {
     void setupEndingBossbar() {
         int minutes = 5;
         int seconds = 0;
-        main.bossBar.setTitle(ChatColor.AQUA + "Please Wash your hands within " + ChatColor.RED + minutes + " minute" + ChatColor.AQUA + " and " + ChatColor.RED + seconds + " seconds" + ChatColor.AQUA + "!");
+        main.bossBar.setTitle(ChatColor.GREEN + "Please Wash your hands within " + ChatColor.RED + minutes + " minute" + ChatColor.GREEN + " and " + ChatColor.RED + seconds + " seconds" + ChatColor.GREEN + "!");
         main.bossBar.setProgress(1);
         main.bossBar.setColor(BarColor.RED);
         new BukkitRunnable(){
@@ -299,11 +309,11 @@ public class MainListener implements Listener {
                 }
                 double total = (min*60) + sec;
                 if(min==0) {
-                    main.bossBar.setTitle(ChatColor.AQUA + "Please Wash your hands within " + ChatColor.RED + sec + " seconds" + ChatColor.AQUA + "!");
+                    main.bossBar.setTitle(ChatColor.GREEN + "Please Wash your hands within " + ChatColor.RED + sec + " seconds" + ChatColor.GREEN + "!");
                 } else if(sec==0) {
-                    main.bossBar.setTitle(ChatColor.AQUA + "Please Wash your hands within " + ChatColor.RED + min + " minute " + ChatColor.AQUA + "!");
+                    main.bossBar.setTitle(ChatColor.GREEN + "Please Wash your hands within " + ChatColor.RED + min + " minute " + ChatColor.GREEN + "!");
                 } else {
-                    main.bossBar.setTitle(ChatColor.AQUA + "Please Wash your hands within " + ChatColor.RED + min + " minute" + ChatColor.AQUA + " and " + ChatColor.RED + sec + " seconds" + ChatColor.AQUA + "!");
+                    main.bossBar.setTitle(ChatColor.GREEN + "Please Wash your hands within " + ChatColor.RED + min + " minute" + ChatColor.GREEN + " and " + ChatColor.RED + sec + " seconds" + ChatColor.GREEN + "!");
                 }
                 main.bossBar.setProgress(total/finalTotal);
             }
@@ -320,7 +330,7 @@ public class MainListener implements Listener {
             public void run() {
                 main.getServer().shutdown();
             }
-        }.runTaskLater(main, 40L);
+        }.runTaskLater(main, 140L);
     }
 
     @EventHandler
@@ -329,10 +339,10 @@ public class MainListener implements Listener {
         if(player.hasPermission("metaganga.admin")) {
             return;
         }
-        if(player.hasPermission("metaganga.finished")) {
+        /*if(player.hasPermission("metaganga.finished")) {
             e.disallow(PlayerLoginEvent.Result.KICK_OTHER, ChatColor.RED + "You have already played and made your contribution!");
             return;
-        }
+        }*/
         if(main.isRunning) {
             if(main.players.contains(player)) {
                 player.sendMessage(ChatColor.GREEN + "You have rejoined the game!");
@@ -352,6 +362,7 @@ public class MainListener implements Listener {
     @EventHandler
     public void onMobSpawn(CreatureSpawnEvent e) {
         if(e.getSpawnReason().equals(CreatureSpawnEvent.SpawnReason.COMMAND) || e.getSpawnReason().equals(CreatureSpawnEvent.SpawnReason.CUSTOM) || e.getSpawnReason().equals(CreatureSpawnEvent.SpawnReason.EGG)) {
+            e.getEntity().setRemoveWhenFarAway(false);
             return;
         }
         e.setCancelled(true);
@@ -468,7 +479,7 @@ public class MainListener implements Listener {
 
     @EventHandler
     public void onPing(ServerListPingEvent e) {
-        if(main.isRunning || main.isFinished) {
+        if(main.isRunning || main.isFinished || main.isSettingUp) {
             e.setMotd("Game in progress!");
         } else {
             e.setMotd("Waiting for more players!");
@@ -550,15 +561,27 @@ public class MainListener implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "iaplaytotemanimation animatedtitles:lifeboy " + player.getName());
         player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         String kickmsg = "";
-        kickmsg+=ChatColor.GREEN + "Congrats on %trashpoints_points% points!\n";
+        /*kickmsg+=ChatColor.GREEN + "Congrats on %trashpoints_points% points!\n";
         kickmsg+="\n";
-        kickmsg+="They will help us build %math_{trashpoints_points}/55% Lifebuoy\n";
+        kickmsg+="They will help us build %math_{trashpoints_points}/55000% Lifebuoy\n";
         kickmsg+="Handwash stations in schools\n";
         kickmsg+="to protect kids from illness-causing germs\n";
         kickmsg+="\n";
         kickmsg+="Here's a thank you\n";
         kickmsg+="from both, the kids,\n";
-        kickmsg+="and river Ganga.\n";
+        kickmsg+="and river Ganga.\n";*/
+
+
+        kickmsg+=ChatColor.GREEN + "Thank you for collecting %trashpoints_points% grams of plastic\n";
+        kickmsg+="from the river.\n";
+        kickmsg+="\n";
+        kickmsg+="We will match your score and collect the same amount of plastic\n";
+        kickmsg+="to build handwashing stations and\n";
+        kickmsg+="serve children of this community.\n";
+        kickmsg+="\n";
+        kickmsg+="A big thank you\n";
+        kickmsg+="from both, the children\n";
+        kickmsg+="and the river.\n";
 
         String finalKickmsg = PlaceholderAPI.setPlaceholders(player, kickmsg);;
         new BukkitRunnable(){
@@ -566,7 +589,7 @@ public class MainListener implements Listener {
             public void run() {
                 player.kickPlayer(finalKickmsg);
             }
-        }.runTaskLater(main, 60L);
+        }.runTaskLater(main, 100L);
     }
 
     @EventHandler

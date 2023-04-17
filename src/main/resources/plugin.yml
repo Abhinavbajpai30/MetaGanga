@@ -3,7 +3,6 @@ version: '${project.version}'
 main: me.abhinav.metaganga.Main
 api-version: 1.19
 depend: [PlaceholderAPI, Multiverse-Core]
-softdepend: [Celebrate]
 commands:
   setminplayers:
   metagangareload:
