@@ -81,7 +81,7 @@ public class Utils {
                     int i=0;
                     @Override
                     public void run() {
-                        if(i>=10) { //Number of Turtles to spawn
+                        if(i>=15) { //Number of Turtles to spawn
                             cancel();
                             return;
                         }

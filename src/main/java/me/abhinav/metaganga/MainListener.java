@@ -10,6 +10,7 @@ import org.bukkit.*;
 import org.bukkit.boss.BarColor;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Boat;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -25,6 +26,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
+import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
@@ -91,6 +93,7 @@ public class MainListener implements Listener {
     }
 
     void startGame() {
+        main.startTimer();
         main.isRunning = true;
         main.isStarting=false;
         main.level=1;
@@ -115,6 +118,8 @@ public class MainListener implements Listener {
         main.saveConfig();
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game stop");
         main.utils.removeTrash(main.level);
+        main.boatPlayers.clear();
+        main.alreadyWashed.clear();
         if(main.level>=5) {
             stopGame();
             return;
@@ -170,6 +175,10 @@ public class MainListener implements Listener {
                 subtitle = ChatColor.AQUA + "Thank you for your contribution!";
                 message = ChatColor.GREEN + "You received " + ChatColor.RED + "Turtle Shell" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
                 helmet = new ItemStack(Material.TURTLE_HELMET);
+                ItemMeta meta1 = helmet.getItemMeta();
+                meta1.addEnchant(Enchantment.OXYGEN, 3, true);
+                meta1.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                helmet.setItemMeta(meta1);
 
                 notification = new ToastNotification(new ItemStack(Material.SCUTE), new TextComponent(ChatColor.GREEN + "Turtles have been spotted basking in the sun on the riverbanks!").toLegacyText(), AdvancementDisplay.AdvancementFrame.TASK);
                 break;
@@ -179,12 +188,16 @@ public class MainListener implements Listener {
                 message = ChatColor.GREEN + "You received " + ChatColor.RED + "Spear" + ChatColor.GREEN + " as your reward! Thank you for your contribution!";
                 ItemStack trident = new ItemStack(Material.TRIDENT);
                 ItemMeta tridentMeta = trident.getItemMeta();
-                tridentMeta.addEnchant(Enchantment.RIPTIDE, 2, true);
+                tridentMeta.addEnchant(Enchantment.RIPTIDE, 3, true);
                 tridentMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
                 tridentMeta.setDisplayName("Spear");
                 trident.setItemMeta(tridentMeta);
                 items.add(trident);
                 helmet = new ItemStack(Material.TURTLE_HELMET);
+                ItemMeta meta2 = helmet.getItemMeta();
+                meta2.addEnchant(Enchantment.OXYGEN, 3, true);
+                meta2.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                helmet.setItemMeta(meta2);
 
                 notification = new ToastNotification(new ItemStack(Material.HEART_OF_THE_SEA), new TextComponent(ChatColor.AQUA + "Playful dolphin seen back in river after years.").toLegacyText(), AdvancementDisplay.AdvancementFrame.TASK);
                 break;
@@ -228,7 +241,6 @@ public class MainListener implements Listener {
                 main.reloadBossBar();
                 main.isLevelChanging = false;
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "game start");
-                main.alreadyWashed.clear();
                 new BukkitRunnable(){
                     @Override
                     public void run() {
@@ -330,7 +342,7 @@ public class MainListener implements Listener {
             public void run() {
                 main.getServer().shutdown();
             }
-        }.runTaskLater(main, 140L);
+        }.runTaskLater(main, 200L);
     }
 
     @EventHandler
@@ -419,13 +431,14 @@ public class MainListener implements Listener {
     @EventHandler
     public void onVehiclePlace(EntityPlaceEvent e) {
         Player player = e.getPlayer();
-        if(player.hasPermission("metaganga.admin")) {
-            return;
-        }
         if(main.isRunning && !main.isLevelChanging && main.level==3) {
             if(e.getEntity() instanceof Boat) {
+                main.boatPlayers.put(e.getEntity(), player);
                 return;
             }
+        }
+        if(player!=null && player.hasPermission("metaganga.admin")) {
+            return;
         }
         e.setCancelled(true);
     }
@@ -447,6 +460,32 @@ public class MainListener implements Listener {
     }
 
     @EventHandler
+    public void onVehicleDestroy(VehicleDestroyEvent e) {
+        if(e.getAttacker() instanceof Player) {
+            Player player = (Player) e.getAttacker();
+            if(main.isRunning && !main.isLevelChanging && main.level==3) {
+                if(main.boatPlayers.containsKey(e.getVehicle())) {
+                    if(main.boatPlayers.get(e.getVehicle()).equals(player)) {
+                        main.boatPlayers.remove(e.getVehicle());
+                        player.getInventory().addItem(new ItemStack(Material.OAK_BOAT));
+                        return;
+                    } else {
+                        if(player.hasPermission("metaganga.admin")) {
+                            return;
+                        }
+                        player.sendMessage(ChatColor.RED + "You can only break your own boat!");
+                        e.setCancelled(true);
+                    }
+                }
+            }
+            if(player.hasPermission("metaganga.admin")) {
+                return;
+            }
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler
     public void onMove(PlayerMoveEvent e) {
         Player player = e.getPlayer();
         if(main.animationPlayers.contains(player)) {
@@ -454,7 +493,7 @@ public class MainListener implements Listener {
                 Location to = e.getFrom();
                 to.setY(e.getTo().getYaw());
                 to.setPitch(e.getTo().getPitch());
-                e.setTo(to);
+                //e.setTo(to);
             }
         }
     }
@@ -552,6 +591,9 @@ public class MainListener implements Listener {
             }.runTaskLater(main, 100L);
         } else if(!player.hasPermission("metaganga.admin")) {
             if(e.getAction().equals(Action.RIGHT_CLICK_BLOCK) || e.getAction().equals(Action.PHYSICAL)) {
+                if(e.getPlayer().getItemInHand().getType().equals(Material.OAK_BOAT) && e.getClickedBlock().getType().equals(Material.WATER)) {
+                    return;
+                }
                 e.setCancelled(true);
             }
         }
@@ -561,19 +603,8 @@ public class MainListener implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "iaplaytotemanimation animatedtitles:lifeboy " + player.getName());
         player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         String kickmsg = "";
-        /*kickmsg+=ChatColor.GREEN + "Congrats on %trashpoints_points% points!\n";
-        kickmsg+="\n";
-        kickmsg+="They will help us build %math_{trashpoints_points}/55000% Lifebuoy\n";
-        kickmsg+="Handwash stations in schools\n";
-        kickmsg+="to protect kids from illness-causing germs\n";
-        kickmsg+="\n";
-        kickmsg+="Here's a thank you\n";
-        kickmsg+="from both, the kids,\n";
-        kickmsg+="and river Ganga.\n";*/
-
-
-        kickmsg+=ChatColor.GREEN + "Thank you for collecting %trashpoints_points% grams of plastic\n";
-        kickmsg+="from the river.\n";
+        kickmsg+=ChatColor.GREEN + "Thank you for collecting %trashpoints_points% points,\n";
+        kickmsg+="which equals %trashpoints_points% grams of plastic waste.\n";
         kickmsg+="\n";
         kickmsg+="We will match your score and collect the same amount of plastic\n";
         kickmsg+="to build handwashing stations and\n";
@@ -616,22 +647,25 @@ public class MainListener implements Listener {
     @EventHandler
     public void onLeave(PlayerQuitEvent e) {
         e.setQuitMessage(null);
-        if(Bukkit.getOnlinePlayers().size()==0) {
-            if(main.isRunning) {
-                Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "Resetting the points and restarting the server as all the players have left the game!");
-                for(Player p: main.players) {
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "reset uuid " + p.getUniqueId());
-                }
-                new BukkitRunnable(){
-                    @Override
-                    public void run() {
-                        main.getServer().shutdown();
+        if(main.isRunning || main.isFinished) {
+            new BukkitRunnable(){
+                @Override
+                public void run() {
+                    if(Bukkit.getOnlinePlayers().size()==0) {
+                        if(main.isFinished) {
+                            Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "Game finished and all the players left. Restarting the server!");
+                        } else {
+                            Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "All players left in between the game. Restarting the server!");
+                        }
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                Bukkit.getServer().shutdown();
+                            }
+                        }.runTaskLater(main, 20L);
                     }
-                }.runTaskLater(main, 40L);
-            } else if(main.isFinished) {
-                Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "Restarting the server as all the players have left after completing the game!");
-                main.getServer().shutdown();
-            }
+                }
+            }.runTaskLater(main, 20L);
         }
     }
 }
